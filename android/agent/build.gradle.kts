@@ -4,25 +4,20 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "de.xyourp.antigravitymobile"
+    namespace = "app.antigravity.agent"
     compileSdk = 36
-    buildToolsVersion = "35.0.0" // pin to the version installed in this environment
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "de.xyourp.antigravitymobile"
+        applicationId = "app.antigravity.agent"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.0"
-
-        // OnePlus 7T Pro (Snapdragon 855, arm64) only needs the arm64 build. The app
-        // has no native code of its own, so this just keeps any library .so files lean.
+        versionName = "0.1.0"
         ndk { abiFilters += "arm64-v8a" }
-        // Ship English strings only; the app has no translations.
         resourceConfigurations += "en"
     }
 
@@ -43,19 +38,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            // Use the release keystore if it has been configured + exists; otherwise
-            // the build still configures (and `assembleDebug` always works).
+            // Kept off on purpose: no reflection-heavy libraries, and a smaller risk of shrinker surprises.
+            isMinifyEnabled = false
             val rc = signingConfigs.getByName("release")
             if (rc.storeFile != null) signingConfig = rc
-        }
-        debug {
-            applicationIdSuffix = ".debug"
         }
     }
 
@@ -63,18 +49,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
-    lint {
-        // False positive: MainActivity extends ComponentActivity (an Activity),
-        // but lintVital can't resolve the AndroidX superclass and aborts the release.
-        disable += "Instantiatable"
-    }
+    kotlinOptions { jvmTarget = "17" }
+    buildFeatures { compose = true }
+    lint { disable += "Instantiatable" }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -84,22 +61,18 @@ android {
 }
 
 dependencies {
+    implementation(project(":agent-core"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
-    debugImplementation(libs.androidx.ui.tooling)
-
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.okhttp)
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.coil.compose)
 }

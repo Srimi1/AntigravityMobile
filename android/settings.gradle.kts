@@ -21,3 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "AntigravityMobile"
 include(":app")
+include(":agent-core")
+include(":agent")

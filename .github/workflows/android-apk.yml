@@ -1,0 +1,80 @@
+name: Build Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "claude/anti-gravity-report-security-n3ndgn" ]
+    paths: [ "android/**", ".github/workflows/android-apk.yml" ]
+    tags: [ "agent-v*" ]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Validates gradle-wrapper.jar against Gradle's official checksums.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (agent core)
+        run: bash ./gradlew :agent-core:test --no-daemon
+
+      # The keystore is not committed to the repo. Use the one from the
+      # AGENT_KEYSTORE_B64 secret if it exists (so updates install over old versions),
+      # otherwise create a throwaway key for this build.
+      - name: Prepare signing key
+        env:
+          AGENT_KEYSTORE_B64: ${{ secrets.AGENT_KEYSTORE_B64 }}
+        run: |
+          mkdir -p keystore
+          if [ -n "$AGENT_KEYSTORE_B64" ]; then
+            echo "$AGENT_KEYSTORE_B64" | base64 -d > keystore/release.jks
+          else
+            keytool -genkeypair -keystore keystore/release.jks -storepass antigravity \
+              -keypass antigravity -alias antigravity -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=Antigravity Mobile"
+          fi
+
+      - name: Build release APKs
+        run: bash ./gradlew :agent:assembleRelease :app:assembleRelease --no-daemon
+
+      - name: Show APK info
+        run: |
+          for APK in agent/build/outputs/apk/release/*.apk app/build/outputs/apk/release/*.apk; do
+            ls -l "$APK"
+            "$ANDROID_HOME"/build-tools/35.0.0/apksigner verify --print-certs "$APK" | head -3 || true
+            sha256sum "$APK"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AntigravityAgent-apk
+          path: android/agent/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AntigravityMobile-remote-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # Tag a commit "agent-v0.1.0" to publish the agent APK as a normal download link.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/agent-v')
+        run: |
+          cp agent/build/outputs/apk/release/*.apk "AntigravityAgent-${GITHUB_REF_NAME}.apk"
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/agent-v')
+        with:
+          files: android/AntigravityAgent-*.apk
