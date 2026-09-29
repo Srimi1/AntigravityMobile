@@ -34,7 +34,7 @@ jobs:
             -validity 10000 -dname "CN=Antigravity Mobile"
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --no-daemon
+        run: bash ./gradlew assembleRelease --no-daemon
 
       - name: Show build tools and APK info
         run: |
