@@ -2100,10 +2100,29 @@ app.post('/api/launch/conversation', Pairing.requirePaired, (req, res) =>
 // --- One-time device pairing (K2) ---
 // Phone submits the code shown on the PC once; gets a token it stores and sends
 // as `x-device-token` on every input request.
+// The code is only 6 digits, so failed attempts are throttled per IP
+// (5 failures -> 15 min lockout) to stop brute-forcing.
+const PAIR_MAX_FAILS = 5;
+const PAIR_LOCKOUT_MS = 15 * 60 * 1000;
+const pairFails = new Map(); // ip -> { count, lockedUntil }
+
 app.post('/api/pair', (req, res) => {
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    const rec = pairFails.get(ip) || { count: 0, lockedUntil: 0 };
+    if (rec.lockedUntil > Date.now()) {
+        const retryAfter = Math.ceil((rec.lockedUntil - Date.now()) / 1000);
+        res.set('Retry-After', String(retryAfter));
+        return res.status(429).json({ error: 'too_many_attempts', retryAfter });
+    }
     const { code, name } = req.body || {};
     const token = Pairing.pair(String(code ?? ''), name || 'phone');
-    if (!token) return res.status(401).json({ error: 'invalid_code' });
+    if (!token) {
+        rec.count += 1;
+        if (rec.count >= PAIR_MAX_FAILS) { rec.lockedUntil = Date.now() + PAIR_LOCKOUT_MS; rec.count = 0; }
+        pairFails.set(ip, rec);
+        return res.status(401).json({ error: 'invalid_code' });
+    }
+    pairFails.delete(ip);
     res.json({ success: true, token });
 });
 

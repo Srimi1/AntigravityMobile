@@ -18,6 +18,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+
+        // OnePlus 7T Pro (Snapdragon 855, arm64) only needs the arm64 build. The app
+        // has no native code of its own, so this just keeps any library .so files lean.
+        ndk { abiFilters += "arm64-v8a" }
+        // Ship English strings only; the app has no translations.
+        resourceConfigurations += "en"
     }
 
     signingConfigs {
