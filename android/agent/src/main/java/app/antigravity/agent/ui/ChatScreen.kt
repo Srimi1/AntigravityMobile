@@ -184,7 +184,8 @@ private fun ItemView(item: ChatItem) {
 @Composable
 private fun ToolCard(item: ChatItem.ToolRun) {
     var open by remember { mutableStateOf(false) }
-    val done = item.output != null
+    val output = item.output
+    val done = output != null
     Card(
         Modifier.fillMaxWidth().clickable(enabled = done) { open = !open },
         colors = CardDefaults.cardColors(
@@ -206,9 +207,9 @@ private fun ToolCard(item: ChatItem.ToolRun) {
                 fontSize = 12.sp,
                 maxLines = if (open) Int.MAX_VALUE else 2,
             )
-            if (open && item.output != null) {
+            if (open && output != null) {
                 Text(
-                    item.output,
+                    output,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 8.dp),
